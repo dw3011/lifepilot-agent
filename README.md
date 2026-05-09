@@ -17,7 +17,7 @@ LifePilot helps users plan short local life activities by understanding a natura
 
 ## Planned Tech Stack
 
-- Web UI: Next.js or React
+- Web UI: Next.js
 - Agent runtime: Node.js / TypeScript
 - AI integration: LLM with Tool Calling
 - Data layer: Mock API and local JSON data for MVP
@@ -39,4 +39,11 @@ lifepilot-agent/
 
 ## How to Run
 
-Placeholder. The full Web UI and runtime will be added in a later iteration.
+```bash
+npm install
+npm run dev
+```
+
+Then open `http://localhost:3000`.
+
+The current MVP uses mock data only. It does not connect to real Meituan APIs, payment APIs, map APIs, SMS APIs, login, or a database.

@@ -4,8 +4,23 @@
   "private": true,
   "description": "LifePilot — AI-powered local life assistant",
   "scripts": {
-    "dev": "echo \"Web UI placeholder\"",
-    "test": "echo \"No tests yet\""
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "next": "^16.2.6",
+    "react": "^19.2.6",
+    "react-dom": "^19.2.6"
+  },
+  "devDependencies": {
+    "@types/node": "22.9.0",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "eslint": "^9.39.4",
+    "eslint-config-next": "^16.2.6",
+    "typescript": "5.6.3"
   },
   "keywords": [
     "agent",
@@ -14,5 +29,8 @@
     "meituan"
   ],
   "author": "",
-  "license": "UNLICENSED"
+  "license": "UNLICENSED",
+  "overrides": {
+    "postcss": "8.5.10"
+  }
 }
