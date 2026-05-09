@@ -153,9 +153,32 @@ textarea:focus {
 
 .actions {
   display: flex;
+  align-items: center;
   justify-content: flex-end;
   gap: 10px;
   margin-top: 14px;
+}
+
+.exception-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  margin-right: auto;
+  border: 1px solid rgba(216, 95, 63, 0.35);
+  border-radius: 8px;
+  background: #fff6f2;
+  padding: 0 12px;
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.exception-toggle input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--coral);
 }
 
 button {
@@ -316,6 +339,25 @@ dd {
   gap: 18px;
 }
 
+.exception-banner {
+  border: 1px solid rgba(216, 95, 63, 0.38);
+  border-radius: 8px;
+  background: #fff6f2;
+  padding: 14px;
+}
+
+.exception-banner span {
+  color: var(--coral);
+  font-size: 12px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.exception-banner strong {
+  display: block;
+  margin: 6px 0;
+}
+
 .summary-panel h2 {
   margin: 0 0 8px;
   font-size: 20px;
@@ -387,6 +429,12 @@ dd {
 
   .actions {
     flex-direction: column;
+    align-items: stretch;
+  }
+
+  .exception-toggle {
+    justify-content: center;
+    margin-right: 0;
   }
 
   button {

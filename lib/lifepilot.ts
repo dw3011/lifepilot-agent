@@ -53,12 +53,19 @@ export type Booking = {
   note: string;
 };
 
+export type AvailabilityResult = {
+  available: boolean;
+  message: string;
+};
+
 export type LifePilotPlan = {
   parsed: ParsedRequirements;
   agentSteps: string[];
   toolTrace: ToolTrace[];
   activity: Activity;
   restaurant: Restaurant;
+  originalRestaurant?: Restaurant;
+  exceptionNote?: string;
   travelTimes: {
     homeToActivity: string;
     activityToRestaurant: string;
@@ -136,12 +143,29 @@ export function searchRestaurants(requirements: ParsedRequirements): Restaurant[
   ];
 }
 
-export function checkAvailability(target: Activity | Restaurant, peopleCount: number): string {
+export function checkAvailability(
+  target: Activity | Restaurant,
+  peopleCount: number,
+  options: { forceRestaurantFull?: boolean } = {}
+): AvailabilityResult {
   if ("pricePerPerson" in target && target.name.includes("Green Bowl")) {
-    return `${target.name} 17:10 可为 ${peopleCount} 人留位。`;
+    if (options.forceRestaurantFull) {
+      return {
+        available: false,
+        message: `${target.name} 17:10 已满座，无法为 ${peopleCount} 人留位。`
+      };
+    }
+
+    return {
+      available: true,
+      message: `${target.name} 17:10 可为 ${peopleCount} 人留位。`
+    };
   }
 
-  return `${target.name} 当前有余位，可直接预约。`;
+  return {
+    available: true,
+    message: `${target.name} 当前有余位，可直接预约。`
+  };
 }
 
 export function estimateTravelTime() {
@@ -152,10 +176,10 @@ export function estimateTravelTime() {
   };
 }
 
-export function createBooking(activity: Activity, restaurant: Restaurant): Booking {
+export function createBooking(activity: Activity, restaurant: Restaurant, options: { fallback?: boolean } = {}): Booking {
   return {
-    bookingId: "MOCK-LP-0524",
-    status: "模拟预订成功",
+    bookingId: options.fallback ? "MOCK-LP-FALLBACK-0524" : "MOCK-LP-0524",
+    status: options.fallback ? "替代餐厅预约成功" : "模拟预订成功",
     target: `${activity.name} + ${restaurant.name}`,
     note: "Mock booking only：未产生真实支付、真实订单或短信通知。"
   };
@@ -170,17 +194,26 @@ export function generateShareMessage(plan: {
   return `今天下午安排好了：先去「${plan.activity.name}」玩 90 分钟，再去「${plan.restaurant.name}」吃轻食简餐。整体不远、不太累，适合孩子，也照顾减脂需求。预计预算 ${plan.estimatedBudget}，${plan.booking.status}。`;
 }
 
-export function buildLifePilotPlan(request: string): LifePilotPlan {
+export function buildLifePilotPlan(request: string, options: { restaurantFull?: boolean } = {}): LifePilotPlan {
   const parsed = parseUserRequest(request);
   const activities = searchActivities(parsed);
   const activity = activities[0];
   const restaurants = searchRestaurants(parsed);
-  const restaurant = restaurants[0];
+  const originalRestaurant = restaurants[0];
   const activityAvailability = checkAvailability(activity, 3);
-  const restaurantAvailability = checkAvailability(restaurant, 3);
+  const firstRestaurantAvailability = checkAvailability(originalRestaurant, 3, {
+    forceRestaurantFull: options.restaurantFull
+  });
+  const fallbackRestaurants = options.restaurantFull ? searchRestaurants(parsed).slice(1) : [];
+  const restaurant = firstRestaurantAvailability.available ? originalRestaurant : (fallbackRestaurants[0] ?? originalRestaurant);
+  const fallbackAvailability =
+    options.restaurantFull && restaurant ? checkAvailability(restaurant, 3) : undefined;
   const travelTimes = estimateTravelTime();
-  const booking = createBooking(activity, restaurant);
-  const estimatedBudget = "约 380-430 元 / 3 人";
+  const booking = createBooking(activity, restaurant, {
+    fallback: options.restaurantFull && restaurant.name !== originalRestaurant.name
+  });
+  const estimatedBudget =
+    options.restaurantFull && restaurant.name !== originalRestaurant.name ? "约 340-390 元 / 3 人" : "约 380-430 元 / 3 人";
   const shareMessage = generateShareMessage({
     activity,
     restaurant,
@@ -194,7 +227,12 @@ export function buildLifePilotPlan(request: string): LifePilotPlan {
       "理解用户的自然语言请求，识别家庭出行、今天下午、5 岁儿童、距离和减脂饮食偏好。",
       "优先选择室内、亲子友好、移动成本低的活动，避免过累或太远。",
       "根据减脂和儿童友好要求筛选餐厅，优先低脂、清淡、同区域可达。",
-      "检查 Mock availability，确认活动和餐厅在目标时间段可用。",
+      options.restaurantFull
+        ? "检查 Mock availability 后发现首选餐厅满座，触发 Agent replanning。"
+        : "检查 Mock availability，确认活动和餐厅在目标时间段可用。",
+      options.restaurantFull
+        ? `重新选择同区域替代餐厅「${restaurant.name}」，并确认可为 3 人留位。`
+        : "保留首选餐厅，继续生成完整 itinerary。",
       "估算路程时间和预算，生成可执行 timeline，并模拟 booking。"
     ],
     toolTrace: [
@@ -211,12 +249,37 @@ export function buildLifePilotPlan(request: string): LifePilotPlan {
       {
         tool: "searchRestaurants()",
         input: "3 人, 减脂低油, 亲子友好, 活动地点附近",
-        output: `返回 ${restaurants.length} 个餐厅，首选「${restaurant.name}」。`
+        output: `返回 ${restaurants.length} 个餐厅，首选「${originalRestaurant.name}」。`
       },
       {
         tool: "checkAvailability()",
-        input: `${activity.name}, ${restaurant.name}, 3 人`,
-        output: `${activityAvailability} ${restaurantAvailability}`
+        input: `${activity.name}, ${originalRestaurant.name}, 3 人`,
+        output: `${activityAvailability.message} ${firstRestaurantAvailability.message}`
+      },
+      ...(options.restaurantFull
+        ? [
+            {
+              tool: "searchRestaurants()",
+              input: `fallback: ${originalRestaurant.name} unavailable, 继续筛选同区域低脂亲子友好餐厅`,
+              output: `选择替代餐厅「${restaurant.name}」。${fallbackAvailability?.message ?? ""}`
+            }
+          ]
+        : []),
+      ...(options.restaurantFull
+        ? [
+            {
+              tool: "checkAvailability()",
+              input: `${restaurant.name}, 3 人, 17:10`,
+              output: fallbackAvailability?.message ?? `${restaurant.name} 当前有余位，可直接预约。`
+            }
+          ]
+        : []),
+      {
+        tool: "replanItinerary()",
+        input: options.restaurantFull ? "首选餐厅满座，替换餐厅并更新预算、booking 和分享文案" : "无异常，沿用原计划",
+        output: options.restaurantFull
+          ? `已从「${originalRestaurant.name}」切换到「${restaurant.name}」。`
+          : "无需重规划。"
       },
       {
         tool: "estimateTravelTime()",
@@ -236,6 +299,10 @@ export function buildLifePilotPlan(request: string): LifePilotPlan {
     ],
     activity,
     restaurant,
+    originalRestaurant: options.restaurantFull ? originalRestaurant : undefined,
+    exceptionNote: options.restaurantFull
+      ? `Original restaurant unavailable：${originalRestaurant.name} 满座，Agent 已选择替代餐厅 ${restaurant.name}。`
+      : undefined,
     travelTimes,
     timeline: [
       {
@@ -251,7 +318,9 @@ export function buildLifePilotPlan(request: string): LifePilotPlan {
       {
         time: "16:15",
         title: "休息和转场",
-        detail: `同一生活广场内步行，预计 ${travelTimes.activityToRestaurant}。`
+        detail: options.restaurantFull
+          ? `首选餐厅「${originalRestaurant.name}」满座，Agent 改选「${restaurant.name}」，转场预计 ${travelTimes.activityToRestaurant}。`
+          : `同一生活广场内步行，预计 ${travelTimes.activityToRestaurant}。`
       },
       {
         time: "17:10",

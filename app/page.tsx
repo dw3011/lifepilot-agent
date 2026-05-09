@@ -18,7 +18,8 @@ const requirementLabels = {
 export default function Home() {
   const [input, setInput] = useState(SAMPLE_REQUEST);
   const [submittedInput, setSubmittedInput] = useState(SAMPLE_REQUEST);
-  const plan = useMemo(() => buildLifePilotPlan(submittedInput), [submittedInput]);
+  const [restaurantFullMode, setRestaurantFullMode] = useState(false);
+  const plan = useMemo(() => buildLifePilotPlan(submittedInput, { restaurantFull: restaurantFullMode }), [submittedInput, restaurantFullMode]);
 
   return (
     <main className="page-shell">
@@ -50,6 +51,14 @@ export default function Home() {
           />
         </div>
         <div className="actions">
+          <label className="exception-toggle">
+            <input
+              type="checkbox"
+              checked={restaurantFullMode}
+              onChange={(event) => setRestaurantFullMode(event.target.checked)}
+            />
+            <span>触发异常场景：餐厅满座</span>
+          </label>
           <button type="button" className="secondary-button" onClick={() => setInput(SAMPLE_REQUEST)}>
             Sample request
           </button>
@@ -118,6 +127,13 @@ export default function Home() {
         </Panel>
 
         <aside className="summary-panel">
+          {plan.exceptionNote ? (
+            <div className="exception-banner">
+              <span>Exception Handling</span>
+              <strong>Original restaurant unavailable</strong>
+              <p>{plan.exceptionNote}</p>
+            </div>
+          ) : null}
           <div>
             <p className="eyebrow">Selected Activity</p>
             <h2>{plan.activity.name}</h2>
@@ -126,7 +142,11 @@ export default function Home() {
           <div>
             <p className="eyebrow">Selected Restaurant</p>
             <h2>{plan.restaurant.name}</h2>
-            <p>{plan.restaurant.reason}</p>
+            <p>
+              {plan.originalRestaurant
+                ? `Alternative restaurant selected：原餐厅「${plan.originalRestaurant.name}」满座，改选「${plan.restaurant.name}」。${plan.restaurant.reason}`
+                : plan.restaurant.reason}
+            </p>
           </div>
           <div className="metrics">
             <div>
