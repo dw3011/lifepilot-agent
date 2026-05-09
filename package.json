@@ -1,0 +1,18 @@
+{
+  "name": "lifepilot-agent",
+  "version": "0.1.0",
+  "private": true,
+  "description": "LifePilot — AI-powered local life assistant",
+  "scripts": {
+    "dev": "echo \"Web UI placeholder\"",
+    "test": "echo \"No tests yet\""
+  },
+  "keywords": [
+    "agent",
+    "local-life",
+    "hackathon",
+    "meituan"
+  ],
+  "author": "",
+  "license": "UNLICENSED"
+}
