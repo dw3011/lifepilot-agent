@@ -145,12 +145,17 @@ export default function Home() {
             <div className="itinerary-header">
               <div>
                 <p className="label-caps">Final Itinerary</p>
-                <h3 id="itinerary-title">推荐行程：家庭半日出行</h3>
+                <h3 id="itinerary-title">{plan.itineraryTitle}</h3>
               </div>
-              <div className={restaurantFullMode ? "switch-pill active" : "switch-pill"}>
+              <button
+                type="button"
+                className={restaurantFullMode ? "switch-pill active" : "switch-pill"}
+                onClick={() => setRestaurantFullMode((current) => !current)}
+                aria-pressed={restaurantFullMode}
+              >
                 <span>餐厅满座模拟</span>
                 <strong>{restaurantFullMode ? "ON" : "OFF"}</strong>
-              </div>
+              </button>
             </div>
 
             {plan.exceptionNote ? (

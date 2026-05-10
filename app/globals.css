@@ -506,12 +506,14 @@ button {
   display: inline-flex;
   align-items: center;
   gap: 10px;
+  border: 0;
   border-radius: 999px;
   background: var(--surface-low);
   padding: 7px 8px 7px 14px;
   color: var(--muted);
   font-size: 13px;
   font-weight: 800;
+  cursor: pointer;
 }
 
 .switch-pill strong {

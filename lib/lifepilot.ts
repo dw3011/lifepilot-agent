@@ -60,6 +60,7 @@ export type AvailabilityResult = {
 
 export type LifePilotPlan = {
   parsed: ParsedRequirements;
+  itineraryTitle: string;
   agentSteps: string[];
   toolTrace: ToolTrace[];
   activity: Activity;
@@ -77,25 +78,53 @@ export type LifePilotPlan = {
   shareMessage: string;
 };
 
+// Mock API / Tool: parse a free-form user request into structured planning constraints.
 export function parseUserRequest(request: string): ParsedRequirements {
   const hasChild = /孩子|小孩|儿童|岁/.test(request);
   const hasWife = /老婆|太太|妻子|伴侣/.test(request);
+  const hasFriends = /朋友|同学|同事/.test(request);
   const dieting = /减肥|低脂|清淡|健康/.test(request);
 
   return {
     timeWindow: request.includes("下午") ? "今天下午，约 4-6 小时" : "近期半天，约 4-6 小时",
-    people: hasWife && hasChild ? "3 人：用户、伴侣、1 名儿童" : "多人同行",
-    scenario: hasChild ? "Family scenario / 亲子家庭出行" : "Friend scenario / 朋友轻社交",
+    people: hasWife && hasChild ? "3 人：用户、伴侣、1 名儿童" : hasFriends ? "4 人左右：朋友轻社交" : "多人同行",
+    scenario: hasChild ? "Family scenario / 亲子家庭出行" : hasFriends ? "Friend scenario / 朋友轻社交" : "Local life scenario / 本地生活出行",
     childAge: hasChild ? "5 岁" : "未提及",
     distancePreference: /别离家太远|附近|不远/.test(request) ? "离家不远，优先 30 分钟内可达" : "距离未明确，默认 30 分钟内",
     dietPreference: dieting ? "减脂、清淡、低油，避免重口味" : "未提及，默认大众口味",
-    activityPreference: hasChild ? "轻松、亲子友好、不要太累" : "吃饭、展览或 citywalk，轻松不累",
+    activityPreference: hasChild ? "轻松、亲子友好、不要太累" : hasFriends ? "吃饭、展览或 citywalk，轻松不累" : "轻松本地活动",
     budget: "未明确，按中等预算规划",
     finalGoal: "生成一份可直接执行、适合同行人的本地生活行程"
   };
 }
 
+// Mock API / Tool: search a local activity catalog using the parsed constraints.
 export function searchActivities(requirements: ParsedRequirements): Activity[] {
+  if (requirements.scenario.includes("Friend")) {
+    return [
+      {
+        name: "城市影像展 + 轻量 citywalk",
+        type: "Indoor + citywalk / 展览与轻步行",
+        address: "滨河艺术中心",
+        duration: "110 分钟",
+        price: 120,
+        indoor: true,
+        familyFriendly: false,
+        reason: "匹配朋友轻社交场景，包含展览和短距离 citywalk，不会太累。"
+      },
+      {
+        name: "河畔轻量 citywalk",
+        type: "Outdoor activity / citywalk",
+        address: "河畔公园入口",
+        duration: "75 分钟",
+        price: 0,
+        indoor: false,
+        familyFriendly: true,
+        reason: "免费且轻松，但受天气影响。"
+      }
+    ];
+  }
+
   return [
     {
       name: "城市亲子艺术体验馆",
@@ -120,7 +149,31 @@ export function searchActivities(requirements: ParsedRequirements): Activity[] {
   ];
 }
 
+// Mock API / Tool: search restaurants near the selected activity and user preferences.
 export function searchRestaurants(requirements: ParsedRequirements): Restaurant[] {
+  if (requirements.scenario.includes("Friend")) {
+    return [
+      {
+        name: "Bistro Flow 轻社交餐吧",
+        cuisine: "融合简餐 / 轻社交",
+        address: "滨河艺术中心 B1",
+        pricePerPerson: 88,
+        healthTags: ["可分享", "低负担", "适合多人"],
+        childFriendly: false,
+        reason: "适合 4 人朋友局，方便边吃边聊天，距离展览地点近。"
+      },
+      {
+        name: "街角健康碗",
+        cuisine: "轻食 / 沙拉碗",
+        address: "滨河艺术中心东侧",
+        pricePerPerson: 64,
+        healthTags: ["低脂", "预算更低"],
+        childFriendly: false,
+        reason: "预算更低，适合想吃轻一点的朋友局。"
+      }
+    ];
+  }
+
   return [
     {
       name: "轻食亲子餐厅 Green Bowl",
@@ -143,6 +196,7 @@ export function searchRestaurants(requirements: ParsedRequirements): Restaurant[
   ];
 }
 
+// Mock API / Tool: simulate availability checks for activities and restaurants.
 export function checkAvailability(
   target: Activity | Restaurant,
   peopleCount: number,
@@ -168,6 +222,7 @@ export function checkAvailability(
   };
 }
 
+// Mock API / Tool: simulate route and travel-time estimation.
 export function estimateTravelTime() {
   return {
     homeToActivity: "约 22 分钟",
@@ -176,6 +231,7 @@ export function estimateTravelTime() {
   };
 }
 
+// Mock API / Tool: simulate booking creation without real payment or real orders.
 export function createBooking(activity: Activity, restaurant: Restaurant, options: { fallback?: boolean } = {}): Booking {
   return {
     bookingId: options.fallback ? "MOCK-LP-FALLBACK-0524" : "MOCK-LP-0524",
@@ -185,35 +241,53 @@ export function createBooking(activity: Activity, restaurant: Restaurant, option
   };
 }
 
+// Mock API / Tool: generate a message users can copy to family or friends.
 export function generateShareMessage(plan: {
   activity: Activity;
   restaurant: Restaurant;
   estimatedBudget: string;
   booking: Booking;
 }) {
-  return `今天下午安排好了：先去「${plan.activity.name}」玩 90 分钟，再去「${plan.restaurant.name}」吃轻食简餐。整体不远、不太累，适合孩子，也照顾减脂需求。预计预算 ${plan.estimatedBudget}，${plan.booking.status}。`;
+  return `今天下午安排好了：先去「${plan.activity.name}」体验 ${plan.activity.duration}，再去「${plan.restaurant.name}」用餐。整体不远、不太累，也匹配当前同行人与饮食偏好。预计预算 ${plan.estimatedBudget}，${plan.booking.status}。`;
 }
 
+function getPeopleCount(parsed: ParsedRequirements) {
+  if (parsed.people.includes("4")) {
+    return 4;
+  }
+
+  if (parsed.people.includes("3")) {
+    return 3;
+  }
+
+  return 2;
+}
+
+// Mock Agent orchestrator: runs the tool chain and replans when a tool reports an exception.
 export function buildLifePilotPlan(request: string, options: { restaurantFull?: boolean } = {}): LifePilotPlan {
   const parsed = parseUserRequest(request);
+  const peopleCount = getPeopleCount(parsed);
   const activities = searchActivities(parsed);
   const activity = activities[0];
   const restaurants = searchRestaurants(parsed);
   const originalRestaurant = restaurants[0];
-  const activityAvailability = checkAvailability(activity, 3);
-  const firstRestaurantAvailability = checkAvailability(originalRestaurant, 3, {
+  const activityAvailability = checkAvailability(activity, peopleCount);
+  const firstRestaurantAvailability = checkAvailability(originalRestaurant, peopleCount, {
     forceRestaurantFull: options.restaurantFull
   });
   const fallbackRestaurants = options.restaurantFull ? searchRestaurants(parsed).slice(1) : [];
   const restaurant = firstRestaurantAvailability.available ? originalRestaurant : (fallbackRestaurants[0] ?? originalRestaurant);
   const fallbackAvailability =
-    options.restaurantFull && restaurant ? checkAvailability(restaurant, 3) : undefined;
+    options.restaurantFull && restaurant ? checkAvailability(restaurant, peopleCount) : undefined;
   const travelTimes = estimateTravelTime();
   const booking = createBooking(activity, restaurant, {
     fallback: options.restaurantFull && restaurant.name !== originalRestaurant.name
   });
   const estimatedBudget =
-    options.restaurantFull && restaurant.name !== originalRestaurant.name ? "约 340-390 元 / 3 人" : "约 380-430 元 / 3 人";
+    options.restaurantFull && restaurant.name !== originalRestaurant.name
+      ? `约 ${peopleCount === 4 ? "430-520" : "340-390"} 元 / ${peopleCount} 人`
+      : `约 ${peopleCount === 4 ? "560-680" : "380-430"} 元 / ${peopleCount} 人`;
+  const itineraryTitle = parsed.scenario.includes("Family") ? "推荐行程：家庭半日出行" : "推荐行程：朋友轻量出行";
   const shareMessage = generateShareMessage({
     activity,
     restaurant,
@@ -223,15 +297,16 @@ export function buildLifePilotPlan(request: string, options: { restaurantFull?: 
 
   return {
     parsed,
+    itineraryTitle,
     agentSteps: [
-      "理解用户的自然语言请求，识别家庭出行、今天下午、5 岁儿童、距离和减脂饮食偏好。",
+      `理解用户的自然语言请求，识别 ${parsed.scenario}、${parsed.timeWindow}、${parsed.distancePreference} 和 ${parsed.dietPreference}。`,
       "优先选择室内、亲子友好、移动成本低的活动，避免过累或太远。",
-      "根据减脂和儿童友好要求筛选餐厅，优先低脂、清淡、同区域可达。",
+      `根据 ${parsed.activityPreference} 和 ${parsed.dietPreference} 筛选活动与餐厅。`,
       options.restaurantFull
         ? "检查 Mock availability 后发现首选餐厅满座，触发 Agent replanning。"
         : "检查 Mock availability，确认活动和餐厅在目标时间段可用。",
       options.restaurantFull
-        ? `重新选择同区域替代餐厅「${restaurant.name}」，并确认可为 3 人留位。`
+        ? `重新选择同区域替代餐厅「${restaurant.name}」，并确认可为 ${peopleCount} 人留位。`
         : "保留首选餐厅，继续生成完整 itinerary。",
       "估算路程时间和预算，生成可执行 timeline，并模拟 booking。"
     ],
@@ -243,17 +318,17 @@ export function buildLifePilotPlan(request: string, options: { restaurantFull?: 
       },
       {
         tool: "searchActivities()",
-        input: "Family scenario, 5 岁儿童, 30 分钟内, 下午 4-6 小时",
+        input: `${parsed.scenario}, ${parsed.childAge}, ${parsed.distancePreference}, ${parsed.timeWindow}`,
         output: `返回 ${activities.length} 个活动，首选「${activity.name}」。`
       },
       {
         tool: "searchRestaurants()",
-        input: "3 人, 减脂低油, 亲子友好, 活动地点附近",
+        input: `${peopleCount} 人, ${parsed.dietPreference}, ${parsed.scenario}, 活动地点附近`,
         output: `返回 ${restaurants.length} 个餐厅，首选「${originalRestaurant.name}」。`
       },
       {
         tool: "checkAvailability()",
-        input: `${activity.name}, ${originalRestaurant.name}, 3 人`,
+        input: `${activity.name}, ${originalRestaurant.name}, ${peopleCount} 人`,
         output: `${activityAvailability.message} ${firstRestaurantAvailability.message}`
       },
       ...(options.restaurantFull
@@ -269,7 +344,7 @@ export function buildLifePilotPlan(request: string, options: { restaurantFull?: 
         ? [
             {
               tool: "checkAvailability()",
-              input: `${restaurant.name}, 3 人, 17:10`,
+              input: `${restaurant.name}, ${peopleCount} 人, 17:10`,
               output: fallbackAvailability?.message ?? `${restaurant.name} 当前有余位，可直接预约。`
             }
           ]
@@ -313,7 +388,7 @@ export function buildLifePilotPlan(request: string, options: { restaurantFull?: 
       {
         time: "14:30",
         title: activity.name,
-        detail: `${activity.duration} 的亲子艺术体验，室内轻松，适合孩子。`
+        detail: `${activity.duration} 的${activity.type}，${activity.reason}`
       },
       {
         time: "16:15",
